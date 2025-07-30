@@ -25,18 +25,40 @@ export interface PostMeta {
 
 const postsDirectory = path.join(process.cwd(), 'content');
 
+// 재귀적으로 모든 마크다운 파일 경로를 수집
+function getAllMarkdownFiles(dir: string): string[] {
+  let results: string[] = [];
+  const list = fs.readdirSync(dir);
+  for (const file of list) {
+    if (file.startsWith('.')) continue; // 숨김파일 무시
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+    if (stat.isDirectory()) {
+      results = results.concat(getAllMarkdownFiles(filePath));
+    } else if (file.endsWith('.md')) {
+      results.push(filePath);
+    }
+    // .canvas 등 기타 확장자는 무시
+  }
+  return results;
+}
+
 export function getAllPostIds() {
-  const fileNames = fs.readdirSync(postsDirectory);
-  return fileNames.map((fileName) => {
+  const mdFiles = getAllMarkdownFiles(postsDirectory);
+  return mdFiles.map((fullPath) => {
+    // id는 content/ 이하 경로에서 .md 확장자 제거
+    const relPath = path.relative(postsDirectory, fullPath);
+    const id = relPath.replace(/\.md$/, '').replace(/\\/g, '/');
     return {
       params: {
-        id: fileName.replace(/\.md$/, ''),
+        id,
       },
     };
   });
 }
 
 export function getPostData(id: string): PostData {
+  // id는 content/ 이하의 경로 (ex: subdir/foo)
   const fullPath = path.join(postsDirectory, `${id}.md`);
   const fileContents = fs.readFileSync(fullPath, 'utf8');
 
@@ -64,30 +86,19 @@ export function getPostData(id: string): PostData {
 }
 
 export function getAllPosts(): PostData[] {
-  // Get file names under /content
-  const fileNames = fs.readdirSync(postsDirectory);
-  const allPostsData = fileNames.map((fileName) => {
-    // Remove ".md" from file name to get id
-    const id = fileName.replace(/\.md$/, '');
-
-    // Read markdown file as string
-    const fullPath = path.join(postsDirectory, fileName);
+  const mdFiles = getAllMarkdownFiles(postsDirectory);
+  const allPostsData = mdFiles.map((fullPath) => {
+    const relPath = path.relative(postsDirectory, fullPath);
+    const id = relPath.replace(/\.md$/, '').replace(/\\/g, '/');
     const fileContents = fs.readFileSync(fullPath, 'utf8');
-
-    // Use gray-matter to parse the post metadata section
     const matterResult = matter(fileContents);
-
-    // Use remark to convert markdown into HTML string
     const processedContent = remark()
       .use(gfm)
       .use(toc, { heading: '목차' })
       .use(html)
       .processSync(matterResult.content);
-
     const contentHtml = processedContent.toString();
     const processedContentHtml = processObsidianLinks(contentHtml);
-
-    // Combine the data with the id and content
     return {
       id,
       content: processedContentHtml,
@@ -95,7 +106,6 @@ export function getAllPosts(): PostData[] {
       slug: id,
     };
   });
-
   // Sort posts by date
   return allPostsData.sort((a, b) => {
     if (a.date < b.date) {
@@ -127,12 +137,10 @@ export function getPostsByTag(tag: string): PostData[] {
 export function getAllTags(): string[] {
   const allPosts = getAllPosts();
   const tags = new Set<string>();
-  
   allPosts.forEach(post => {
     if (post.tags) {
       post.tags.forEach(tag => tags.add(tag));
     }
   });
-  
   return Array.from(tags).sort();
 } 
