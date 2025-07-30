@@ -24,3 +24,99 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 마크다운 콘텐츠 스타일링 */
+.prose {
+  max-width: none;
+}
+
+.prose h1 {
+  @apply text-3xl font-bold text-gray-900 mb-6 mt-8;
+}
+
+.prose h2 {
+  @apply text-2xl font-semibold text-gray-800 mb-4 mt-6;
+}
+
+.prose h3 {
+  @apply text-xl font-semibold text-gray-800 mb-3 mt-5;
+}
+
+.prose h4 {
+  @apply text-lg font-semibold text-gray-800 mb-2 mt-4;
+}
+
+.prose p {
+  @apply text-gray-700 leading-relaxed mb-4;
+}
+
+.prose ul {
+  @apply list-disc list-inside mb-4 space-y-1;
+}
+
+.prose ol {
+  @apply list-decimal list-inside mb-4 space-y-1;
+}
+
+.prose li {
+  @apply text-gray-700;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-blue-500 pl-4 italic text-gray-600 my-4;
+}
+
+.prose code {
+  @apply bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-sm font-mono;
+}
+
+.prose pre {
+  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4;
+}
+
+.prose pre code {
+  @apply bg-transparent text-gray-100 p-0;
+}
+
+.prose a {
+  @apply text-blue-600 hover:text-blue-800 underline;
+}
+
+.prose a.internal-link {
+  @apply text-purple-600 hover:text-purple-800;
+}
+
+.prose img {
+  @apply max-w-full h-auto rounded-lg shadow-md my-4;
+}
+
+.prose table {
+  @apply w-full border-collapse border border-gray-300 mb-4;
+}
+
+.prose th {
+  @apply border border-gray-300 bg-gray-100 px-4 py-2 text-left font-semibold;
+}
+
+.prose td {
+  @apply border border-gray-300 px-4 py-2;
+}
+
+.prose hr {
+  @apply border-gray-300 my-8;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .prose h1 {
+    @apply text-2xl;
+  }
+  
+  .prose h2 {
+    @apply text-xl;
+  }
+  
+  .prose h3 {
+    @apply text-lg;
+  }
+}
