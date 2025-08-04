@@ -40,6 +40,26 @@ function createSafeSlug(filePath: string): string {
     .trim();
 }
 
+// 파일명에서 제목 추출
+function getTitleFromFilename(filePath: string): string {
+  const relativePath = path.relative(postsDirectory, filePath);
+  const withoutExt = relativePath.replace(/\.md$/, '');
+  return withoutExt.split('/').pop() || 'Untitled';
+}
+
+// 기본 메타데이터 생성
+function getDefaultMeta(filePath: string): PostMeta {
+  const title = getTitleFromFilename(filePath);
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD 형식
+  
+  return {
+    title,
+    date: today,
+    tags: [],
+    excerpt: title,
+  };
+}
+
 // 재귀적으로 모든 마크다운 파일 경로를 수집
 function getAllMarkdownFiles(dir: string): string[] {
   let results: string[] = [];
@@ -81,6 +101,18 @@ export function getPostData(id: string): PostData {
   
   const fileContents = fs.readFileSync(targetFile, 'utf8');
   const matterResult = matter(fileContents);
+  
+  // frontmatter가 없거나 필수 필드가 없으면 기본값 사용
+  const meta = matterResult.data as Partial<PostMeta>;
+  const defaultMeta = getDefaultMeta(targetFile);
+  
+  const finalMeta: PostMeta = {
+    title: meta.title || defaultMeta.title,
+    date: meta.date || defaultMeta.date,
+    tags: meta.tags || defaultMeta.tags,
+    excerpt: meta.excerpt || defaultMeta.excerpt,
+  };
+  
   const processedContent = remark()
     .use(gfm)
     .use(toc, { heading: '목차' })
@@ -93,7 +125,7 @@ export function getPostData(id: string): PostData {
   return {
     id,
     content: processedContentHtml,
-    ...(matterResult.data as PostMeta),
+    ...finalMeta,
     slug: id,
   };
 }
@@ -104,6 +136,18 @@ export function getAllPosts(): PostData[] {
     const slug = createSafeSlug(fullPath);
     const fileContents = fs.readFileSync(fullPath, 'utf8');
     const matterResult = matter(fileContents);
+    
+    // frontmatter가 없거나 필수 필드가 없으면 기본값 사용
+    const meta = matterResult.data as Partial<PostMeta>;
+    const defaultMeta = getDefaultMeta(fullPath);
+    
+    const finalMeta: PostMeta = {
+      title: meta.title || defaultMeta.title,
+      date: meta.date || defaultMeta.date,
+      tags: meta.tags || defaultMeta.tags,
+      excerpt: meta.excerpt || defaultMeta.excerpt,
+    };
+    
     const processedContent = remark()
       .use(gfm)
       .use(toc, { heading: '목차' })
@@ -114,7 +158,7 @@ export function getAllPosts(): PostData[] {
     return {
       id: slug,
       content: processedContentHtml,
-      ...(matterResult.data as PostMeta),
+      ...finalMeta,
       slug: slug,
     };
   });
