@@ -25,6 +25,21 @@ export interface PostMeta {
 
 const postsDirectory = path.join(process.cwd(), 'content');
 
+// URL 안전한 slug 생성 함수
+function createSafeSlug(filePath: string): string {
+  // 파일 경로에서 content/ 제거하고 .md 확장자 제거
+  const relativePath = path.relative(postsDirectory, filePath);
+  const withoutExt = relativePath.replace(/\.md$/, '');
+  
+  // URL 안전한 문자열로 변환
+  return withoutExt
+    .replace(/[^\w\s-]/g, '') // 특수문자 제거
+    .replace(/\s+/g, '-') // 공백을 하이픈으로
+    .replace(/-+/g, '-') // 연속된 하이픈을 하나로
+    .toLowerCase()
+    .trim();
+}
+
 // 재귀적으로 모든 마크다운 파일 경로를 수집
 function getAllMarkdownFiles(dir: string): string[] {
   let results: string[] = [];
@@ -38,7 +53,7 @@ function getAllMarkdownFiles(dir: string): string[] {
     } else if (file.endsWith('.md')) {
       results.push(filePath);
     }
-    // .canvas 등 기타 확장자는 무시
+    // .canvas, .excalidraw 등 기타 확장자는 무시
   }
   return results;
 }
@@ -46,26 +61,26 @@ function getAllMarkdownFiles(dir: string): string[] {
 export function getAllPostIds() {
   const mdFiles = getAllMarkdownFiles(postsDirectory);
   return mdFiles.map((fullPath) => {
-    // id는 content/ 이하 경로에서 .md 확장자 제거
-    const relPath = path.relative(postsDirectory, fullPath);
-    const id = relPath.replace(/\.md$/, '').replace(/\\/g, '/');
+    const slug = createSafeSlug(fullPath);
     return {
       params: {
-        id,
+        id: slug,
       },
     };
   });
 }
 
 export function getPostData(id: string): PostData {
-  // id는 content/ 이하의 경로 (ex: subdir/foo)
-  const fullPath = path.join(postsDirectory, `${id}.md`);
-  const fileContents = fs.readFileSync(fullPath, 'utf8');
-
-  // Use gray-matter to parse the post metadata section
+  // id는 URL 안전한 slug이므로, 원본 파일을 찾아야 함
+  const mdFiles = getAllMarkdownFiles(postsDirectory);
+  const targetFile = mdFiles.find(file => createSafeSlug(file) === id);
+  
+  if (!targetFile) {
+    throw new Error(`Post not found: ${id}`);
+  }
+  
+  const fileContents = fs.readFileSync(targetFile, 'utf8');
   const matterResult = matter(fileContents);
-
-  // Use remark to convert markdown into HTML string
   const processedContent = remark()
     .use(gfm)
     .use(toc, { heading: '목차' })
@@ -73,8 +88,6 @@ export function getPostData(id: string): PostData {
     .processSync(matterResult.content);
 
   const contentHtml = processedContent.toString();
-
-  // Process Obsidian internal links
   const processedContentHtml = processObsidianLinks(contentHtml);
 
   return {
@@ -88,8 +101,7 @@ export function getPostData(id: string): PostData {
 export function getAllPosts(): PostData[] {
   const mdFiles = getAllMarkdownFiles(postsDirectory);
   const allPostsData = mdFiles.map((fullPath) => {
-    const relPath = path.relative(postsDirectory, fullPath);
-    const id = relPath.replace(/\.md$/, '').replace(/\\/g, '/');
+    const slug = createSafeSlug(fullPath);
     const fileContents = fs.readFileSync(fullPath, 'utf8');
     const matterResult = matter(fileContents);
     const processedContent = remark()
@@ -100,12 +112,13 @@ export function getAllPosts(): PostData[] {
     const contentHtml = processedContent.toString();
     const processedContentHtml = processObsidianLinks(contentHtml);
     return {
-      id,
+      id: slug,
       content: processedContentHtml,
       ...(matterResult.data as PostMeta),
-      slug: id,
+      slug: slug,
     };
   });
+  
   // Sort posts by date
   return allPostsData.sort((a, b) => {
     if (a.date < b.date) {
@@ -121,7 +134,8 @@ function processObsidianLinks(content: string): string {
   // [[파일명]] 형태의 링크를 처리
   return content.replace(/\[\[([^\]]+)\]\]/g, (match, linkText) => {
     const [fileName, displayText] = linkText.split('|');
-    const slug = fileName.replace(/\.md$/, '').toLowerCase().replace(/\s+/g, '-');
+    // 파일명을 안전한 slug로 변환
+    const slug = createSafeSlug(fileName + '.md');
     const display = displayText || fileName;
     return `<a href="/posts/${slug}" class="internal-link">${display}</a>`;
   });
